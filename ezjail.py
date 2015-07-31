@@ -21,8 +21,7 @@ class Ezjail(object):
         self.cmd = self.module.get_bin_path('ezjail-admin', required=True)
 
     def ezjail_admin(self, command, *params):
-        return self.module.run_command(' '.join(['sudo', self.cmd, command]
-            + list(params)))
+        return self.module.run_command(' '.join([self.cmd, command] + list(params)))
 
     def exists(self):
         (rc, out, err) = self.ezjail_admin('config', '-r', 'test', self.name)
@@ -38,7 +37,7 @@ class Ezjail(object):
         if rc == 0:
             self.changed = True
             if self.state == 'running':
-                (rc, out, err) = self.ezjail_admin('start', 'webserver')
+                (rc, out, err) = self.ezjail_admin('start', self.name)
                 if rc != 0:
                     result['failed'] = True
                     result['msg'] = "Could not start jail. %s%s" % (out, err)
@@ -51,6 +50,19 @@ class Ezjail(object):
     def destroy(self):
         raise NotImplemented
 
+    def stop(self):
+        result = dict()
+        if self.module.check_mode:
+            self.changed = True
+            return result
+        (rc, out, err) = self.ezjail_admin('stop', self.name)
+        if rc != 0:
+            result['failed'] = True
+            result['msg'] = "Could not stop jail. %s%s" % (out, err)
+        else:
+            self.changed = True
+        return result
+
     def __call__(self):
 
         result = dict(name=self.name, state=self.state)
@@ -61,6 +73,9 @@ class Ezjail(object):
         elif self.state == 'absent':
             if self.exists():
                 self.destroy()
+        elif self.state == 'stopped':
+            if self.exists():
+                self.stop()
 
         result['changed'] = self.changed
         return result
@@ -69,9 +84,9 @@ class Ezjail(object):
 MODULE_SPECS = dict(
     argument_spec=dict(
         name=dict(required=True, type='str'),
-        state=dict(default='present', choices=['present', 'absent', 'running'], type='str'),
+        state=dict(default='present', choices=['present', 'absent', 'running', 'stopped'], type='str'),
         disktype=dict(default='simple', choices=['simple', 'bde', 'eli', 'zfs'], type='str'),
-        ip_addr=dict(required=True, type='str'),
+        ip_addr=dict(required=False, type='str'),
         ),
     supports_check_mode=True
 )
