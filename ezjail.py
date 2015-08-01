@@ -50,6 +50,19 @@ class Ezjail(object):
     def destroy(self):
         raise NotImplemented
 
+    def start(self):
+        result = dict()
+        if self.module.check_mode:
+            self.changed = True
+            return result
+        (rc, out, err) = self.ezjail_admin('start', self.name)
+        if rc != 0:
+            result['failed'] = True
+            result['msg'] = "Could not start jail. %s%s" % (out, err)
+        else:
+            self.changed = True
+        return result
+
     def stop(self):
         result = dict()
         if self.module.check_mode:
@@ -70,6 +83,8 @@ class Ezjail(object):
         if self.state in ['present', 'running']:
             if not self.exists():
                 result.update(self.create())
+            else:
+                self.start()
         elif self.state == 'absent':
             if self.exists():
                 self.destroy()
